@@ -17,7 +17,8 @@ function init() {
     const start = {x: 1, y: 1};
     const ghostStarts = [{x:6,y:7},{x:5,y:7},{x:7,y:7},{x:6,y:5}];
     const state = ctx.state(null);
-    const high = ctx.state(Number($storage.get("highScore") || 0));
+    const preferences = ctx.settings.define("seapac", { highScore: 0 });
+    const high = ctx.state(Number(preferences.get("highScore", 0)) || 0);
     let opened = false;
     function newGame() {
       const pellets = maze.map(r => r.split("").map(c => c === "." || c === "o" ? c : " "));
@@ -73,7 +74,7 @@ function init() {
       if(!s.over && s.pellets.every(row=>row.every(c=>c===" "))){
         const n=newGame();n.score=s.score;n.lives=s.lives;n.level=s.level+1;state.set(n);return;
       }
-      if(s.score>high.get()){high.set(s.score);$storage.set("highScore",s.score);}
+      if(s.score>high.get()){high.set(s.score);preferences.set("highScore", s.score);}
       state.set({...s});
     }
     ctx.setInterval(tick,450);
