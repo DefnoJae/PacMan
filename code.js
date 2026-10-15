@@ -136,8 +136,38 @@ function init() {
       tray.update();
     }
     ctx.setInterval(step, 180);
-    tray.onOpen(()=>{opened=true;tray.update();});
-    tray.onClose(()=>{opened=false;});
+    // Stop arrow keys / Space from scrolling the background page while
+    // the game is active. Restore the original inline styles on close.
+    // The browser receives native key events before Goja receives its
+    // serialized copies, so preventDefault() cannot be called from Goja.
+    let scrollLocks = [];
+    let scrollLockVersion = 0;
+    function lockBackgroundScroll() {
+      const version = ++scrollLockVersion;
+      Promise.all([ctx.dom.queryOne("html"),ctx.dom.queryOne("body")])
+        .then(elements => {
+          if (!opened || version !== scrollLockVersion) return;
+          scrollLocks = elements.filter(Boolean).map(element => ({
+            element: element,
+            original: element.attributes && element.attributes.style !== undefined
+              ? element.attributes.style : null
+          }));
+          scrollLocks.forEach(entry => {
+            entry.element.setStyle("overflow", "hidden");
+            entry.element.setStyle("overscroll-behavior", "none");
+          });
+        }).catch(() => {});
+    }
+    function unlockBackgroundScroll() {
+      scrollLockVersion++;
+      scrollLocks.forEach(entry => {
+        if (entry.original === null) entry.element.removeAttribute("style");
+        else entry.element.setAttribute("style",entry.original);
+      });
+      scrollLocks = [];
+    }
+    tray.onOpen(()=>{opened=true;lockBackgroundScroll();tray.update();});
+    tray.onClose(()=>{opened=false;unlockBackgroundScroll();});
     function direction(dx,dy) {
       const s=game.get();if(s.over)return;
       s.wanted={x:dx,y:dy};
