@@ -49,7 +49,7 @@ function init() {
     }
     game.set(fresh(0,3,1));
     const tray = ctx.newTray({
-      iconUrl: "https://raw.githubusercontent.com/DefnoJae/PacMan/main/icon.svg",
+      iconUrl: "https://raw.githubusercontent.com/DefnoJae/PacMan/main/icon.png",
       withContent: true, width: "385px", minHeight: "570px"
     });
 
@@ -148,13 +148,38 @@ function init() {
     ctx.registerEventHandler("seapac-down",()=>direction(0,1));
     ctx.registerEventHandler("seapac-left",()=>direction(-1,0));
     ctx.registerEventHandler("seapac-right",()=>direction(1,0));
-    ctx.registerEventHandler("seapac-pause",()=>{
+    function togglePause() {
       const s=game.get();if(s.over)return;
       s.paused=!s.paused;s.ready=false;game.set({...s});tray.update();
-    });
+    }
+    ctx.registerEventHandler("seapac-pause",togglePause);
     ctx.registerEventHandler("seapac-restart",()=>{
       tickNumber=0;game.set(fresh(0,3,1));tray.update();
     });
+
+
+    // Keyboard events are relayed from Seanime's browser DOM to the plugin.
+    // The listener is active only while the SeaPac tray is open.
+    // Reattach on main-tab changes, and remove previous listeners to avoid duplicates.
+    let removeKeyboard = null;
+    function installKeyboard() {
+      ctx.dom.queryOne("body").then(body => {
+        if (!body) return;
+        if (removeKeyboard) removeKeyboard();
+        removeKeyboard = body.addEventListener("keydown", event => {
+          if (!opened || !event || event.ctrlKey || event.altKey || event.metaKey) return;
+          switch (event.key) {
+            case "ArrowUp": case "w": case "W": direction(0,-1); break;
+            case "ArrowDown": case "s": case "S": direction(0,1); break;
+            case "ArrowLeft": case "a": case "A": direction(-1,0); break;
+            case "ArrowRight": case "d": case "D": direction(1,0); break;
+            case " ": case "Spacebar": togglePause(); break;
+          }
+        });
+      }).catch(() => {});
+    }
+    ctx.dom.onReady(installKeyboard);
+    ctx.dom.onMainTabReady(installKeyboard);
 
     function circle(x,y,r,color) {
       return '<circle cx="'+x+'" cy="'+y+'" r="'+r+'" fill="'+color+'"/>';
